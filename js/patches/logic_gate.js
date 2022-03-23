@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { generateMatrixRotations } from "shapez/core/utils";
 import { Vector, enumDirection } from "shapez/core/vector";
 import { MetaCutterBuilding } from "shapez/game/buildings/cutter";
@@ -12,7 +13,7 @@ import { itemResolverSingleton } from "shapez/game/item_resolver";
 import { defaultBuildingVariant } from "shapez/game/meta_building";
 import { LogicGateSystem } from "shapez/game/systems/logic_gate";
 import { isModLoaded } from "../utils";
-import { combineDefinitions, shapeActionCompress } from "../compat/shapez_industries";
+import { combineDefinitions, unCombineDefinitions, shapeActionCompress } from "../compat/shapez_industries";
 
 export function patchLogicGate() {
     const addToEnum = {
@@ -52,6 +53,7 @@ export function patchLogicGate() {
     if(isModLoaded("shapez-industries")) {
         const addVariants = {
             combiner: "combiner",
+            uncombiner: "uncombiner",
             compressor: "compressor",
         };
         Object.assign(enumVirtualProcessorVariants, addVariants);
@@ -60,12 +62,14 @@ export function patchLogicGate() {
 
         const addColors = {
             [enumVirtualProcessorVariants.combiner]: "#0b8005",
+            [enumVirtualProcessorVariants.uncombiner]: "#0b8005",
             [enumVirtualProcessorVariants.compressor]: "#0b8005",
         };
         Object.assign(colors, addColors);
 
         const addMatrices = {
             [enumVirtualProcessorVariants.combiner]: generateMatrixRotations([1, 1, 1, 1, 1, 1, 1, 1, 1]),
+            [enumVirtualProcessorVariants.uncombiner]: generateMatrixRotations([1, 1, 1, 1, 1, 1, 1, 1, 1]),
             [enumVirtualProcessorVariants.compressor]: generateMatrixRotations([1, 1, 1, 0, 1, 0, 1, 1, 1]),
         };
         Object.assign(overlayMatrices, addMatrices);
@@ -100,6 +104,17 @@ export function patchLogicGate() {
             {
                 name: "Virtual Combiner",
                 description: "Virtually merges two shapes into one combined shape.",
+                isUnlocked(root) {
+                    return root.hubGoals.isRewardUnlocked("reward_shape_combiner");
+                }
+            }
+        );
+        this.modInterface.addVariantToExistingBuilding(
+            MetaVirtualProcessorBuilding,
+            enumVirtualProcessorVariants.uncombiner,
+            {
+                name: "Virtual UnCombiner",
+                description: "Virtually unmerges one shape into two shapes.",
                 isUnlocked(root) {
                     return root.hubGoals.isRewardUnlocked("reward_shape_combiner");
                 }
@@ -204,6 +219,26 @@ export function patchLogicGate() {
                     ]);
                     break;
                 }
+                case enumLogicGateType.uncombiner: {
+                    pinComp.setSlots([
+                        {
+                            pos: new Vector(0, 0),
+                            direction: enumDirection.bottom,
+                            type: enumPinSlotType.logicalAcceptor,
+                        },
+                        {
+                            pos: new Vector(0, 0),
+                            direction: enumDirection.left,
+                            type: enumPinSlotType.logicalEjector,
+                        },
+                        {
+                            pos: new Vector(0, 0),
+                            direction: enumDirection.right,
+                            type: enumPinSlotType.logicalEjector,
+                        },
+                    ]);
+                    break;
+                }
                 default:
                     assertAlways("unknown logic gate type: " + gateType);
             }
@@ -256,6 +291,17 @@ export function patchLogicGate() {
             const combinedDefinition = combineDefinitions(firstDefinition, secondDefinition);
             return this.root.shapeDefinitionMgr.getShapeItemFromDefinition(combinedDefinition);
         };
+        toExtend.compute_UNCOMBINE = function(parameters) {
+            const first = parameters[0];
+            if (!first || first.getItemType() !== "shape") {
+                return [null, null];
+            }
+
+            const firstDefinition = first.definition;
+            const unCombinedDefinition = unCombineDefinitions(firstDefinition);
+            return [this.root.shapeDefinitionMgr.getShapeItemFromDefinition(unCombinedDefinition[0]),
+                this.root.shapeDefinitionMgr.getShapeItemFromDefinition(unCombinedDefinition[1])];
+        };
         toExtend.compute_COMPRESS = function(parameters) {
             const item = parameters[0];
             if (!item || item.getItemType() !== "shape") {
@@ -280,6 +326,9 @@ export function patchLogicGate() {
         if(isModLoaded("shapez-industries")) {
             const siCombiner = root.systemMgr.systems.logicGate.compute_COMBINE.bind(root.systemMgr.systems.logicGate);
             root.systemMgr.systems.logicGate.boundOperations[enumLogicGateType.combiner] = siCombiner;
+
+            const siUnCombiner = root.systemMgr.systems.logicGate.compute_UNCOMBINE.bind(root.systemMgr.systems.logicGate);
+            root.systemMgr.systems.logicGate.boundOperations[enumLogicGateType.uncombiner] = siUnCombiner;
             
             const siCompressor = root.systemMgr.systems.logicGate.compute_COMPRESS.bind(root.systemMgr.systems.logicGate);
             root.systemMgr.systems.logicGate.boundOperations[enumLogicGateType.compressor] = siCompressor;

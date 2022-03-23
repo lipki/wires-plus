@@ -47,6 +47,34 @@ export const enumShapeCombiningResults = {
     [enumCombinedShape.starwindmill]: {},
 };
 
+export const enumShapeUnCombiningResults = {
+    [m.rectcircle]: [[s.rect], [s.circle]],
+    [m.starrect]: [[s.rect], [s.star]],
+    [m.rectwindmill]: [[s.rect], [s.windmill]],
+    [m.circlestar]: [[s.circle], [s.star]],
+    [m.circlewindmill]: [[s.circle], [s.windmill]],
+    [m.starwindmill]: [[s.star], [s.windmill]],
+
+    // auto
+    [s.rect]: [[s.rect], [s.rect]],
+    [s.circle]: [[s.circle], [s.circle]],
+    [s.star]: [[s.star], [s.star]],
+    [s.windmill]: [[s.windmill], [s.windmill]],
+};
+
+export const enumColorUnMixingResults = {
+    [enumColors.purple]: [[enumColors.red], [enumColors.blue]],
+    [enumColors.cyan]: [[enumColors.blue], [enumColors.green]],
+    [enumColors.yellow]: [[enumColors.green], [enumColors.red]],
+    [enumColors.white]: [[enumColors.yellow], [enumColors.blue]],
+
+    // auto
+    [enumColors.uncolored]: [[enumColors.uncolored], [enumColors.uncolored]],
+    [enumColors.red]: [[enumColors.red], [enumColors.red]],
+    [enumColors.green]: [[enumColors.green], [enumColors.green]],
+    [enumColors.blue]: [[enumColors.blue], [enumColors.blue]],
+};
+
 for (const key in enumShapeCombiningResults) {
     enumShapeCombiningResults[key][key] = key;
 }
@@ -122,6 +150,71 @@ export function combineDefinitions(definition1, definition2) {
     }
 
     return outDefinition;
+}
+
+export function unCombineDefinitions(definition) {
+    let outDefinition1 = new ShapeDefinition({ layers: [] });
+    let outDefinition2 = new ShapeDefinition({ layers: [] });
+
+    for (let i = 0; i < definition.layers.length; ++i) {
+        //handle one layer at a time
+        const shape = definition.layers[i];
+        let layerResult1 = [null, null, null, null];
+        let layerResult2 = [null, null, null, null];
+
+        if (shape) {
+            for (let quad = 0; quad < 4; ++quad) {
+                let outColor1;
+                let outColor2;
+                let outShape1;
+                let outShape2;
+
+                if (shape[quad]) {
+                    const color = shape[quad].color;
+                    const subShape = shape[quad].subShape;
+
+                    outColor1 = enumColorUnMixingResults[color][0];
+                    outColor2 = enumColorUnMixingResults[color][1];
+
+                    outShape1 = enumShapeUnCombiningResults[subShape][0];
+                    outShape2 = enumShapeUnCombiningResults[subShape][1];
+
+                }
+
+                if (outColor1 && outShape1) {
+                    const shapelinkedBefore = shape[quad]?.linkedBefore;
+                    const shapelinkedAfter = shape[quad]?.linkedAfter;
+
+                    layerResult1[quad] = {
+                        linkedBefore: shapelinkedBefore,
+                        linkedAfter: shapelinkedAfter,
+                        subShape: outShape1,
+                        color: outColor1,
+                    };
+                }
+
+                if (outColor2 && outShape2) {
+                    const shapelinkedBefore = shape[quad]?.linkedBefore;
+                    const shapelinkedAfter = shape[quad]?.linkedAfter;
+
+                    layerResult2[quad] = {
+                        linkedBefore: shapelinkedBefore,
+                        linkedAfter: shapelinkedAfter,
+                        subShape: outShape2,
+                        color: outColor2,
+                    };
+                }
+            }
+        } else {
+            layerResult1 = shape;
+            layerResult2 = shape;
+        }
+
+        outDefinition1.layers.push(layerResult1);
+        outDefinition2.layers.push(layerResult2);
+    }
+
+    return [outDefinition1, outDefinition2];
 }
 
 export function shapeActionCompress(root, definition) {
