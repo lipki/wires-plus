@@ -6,6 +6,7 @@ import { patchWire } from "./patches/wire";
 import { patchWireTunnel } from "./patches/wire_tunnel";
 import { patchWireSystem } from "./patches/wire_system";
 import { patchGameLogic } from "./patches/game_logic";
+import { patchAnalyzer } from "./patches/analyzer";
 
 import { MetaAdderBuilding } from "./buildings/adder";
 import { MetaAdvancedProcessorBuilding } from "./buildings/advanced_processor";
@@ -63,6 +64,7 @@ class ModImpl extends Mod {
         patchWireTunnel.call(this);
         patchWireSystem.call(this);
         patchGameLogic.call(this);
+        patchAnalyzer.call(this);
 
         this.component(AdderComponent);
         this.component(BundleComponent);
